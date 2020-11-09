@@ -24,7 +24,7 @@ app.post("/posts/:id/comments", async (req, res) => {
 
   const comments = commentsByPostId[id] || [];
 
-  comments.push({ id: commentId, content });
+  comments.push({ id: commentId, content, status: "pending" });
   commentsByPostId[id] = comments;
 
   try {
@@ -36,6 +36,7 @@ app.post("/posts/:id/comments", async (req, res) => {
           id: commentId,
           content,
           postId: id,
+          status: "pending",
         },
       }),
       headers: {
@@ -47,9 +48,32 @@ app.post("/posts/:id/comments", async (req, res) => {
   res.send(commentsByPostId[id]);
 });
 
-app.post("/events", (req, res) => {
-  const data = req.body;
-  console.log("Recived event => ", data.type);
+app.post("/events", async (req, res) => {
+  const { type, data } = req.body;
+  console.log("Event => ", type);
+
+  if (type === "CommentModerated") {
+    const { id, postId, status, content } = data;
+
+    const comments = commentsByPostId[postId];
+    let comment = comments.find((comment) => comment.id === id);
+
+    comment.status = status;
+
+    try {
+      await fetch("http://localhost:4005/events", {
+        method: "post",
+        body: JSON.stringify({
+          type: "CommentUpdated",
+          data: { id, postId, status, content },
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (error) {}
+  }
+
   res.send({});
 });
 
